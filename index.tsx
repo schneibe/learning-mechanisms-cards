@@ -1,77 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
-
-const mechanisms = [
-    { "name": "Glassboxing", "sourceLabel": "Blikstein" },
-    { "name": "Restructuration", "sourceLabel": "Wilensky" },
-    { "name": "Cultural Forms", "sourceLabel": "Horn" },
-    { "name": "Contrasting Cases", "sourceLabel": "Schwartz" },
-    { "name": "Scaffolding", "sourceLabel": "Wood, Bruner, & Ross (1976)" },
-    { "name": "Self-explanation", "sourceLabel": "Chi" },
-    { "name": "Activate Prior Knowledge", "sourceLabel": "Ausubel (1968)" },
-    { "name": "Foster Cognitive Conflict", "sourceLabel": "Piaget" },
-    { "name": "Promote Sensemaking", "sourceLabel": "(Duschl, Schweingruber & Shouse, 2007)" },
-    { "name": "Concreteness fading", "sourceLabel": "Fyfe, McNeil, Son, & Goldstone (2014)" },
-    { "name": "Worked Examples", "sourceLabel": "Sweller & Cooper (1985)" },
-    { "name": "Analogical Reasoning", "sourceLabel": "Gentner, D. (1983)" },
-    { "name": "Inquiry Cycles", "sourceLabel": "(Kolodner et al., 2003; Linn, Davis & Bell, 2004)." },
-    { "name": "Make the invisible visible", "sourceLabel": "diSessa, A. A. (1993)" },
-    { "name": "Learning-by-Making", "sourceLabel": "Papert" },
-    { "name": "Microworlds", "sourceLabel": "Papert" },
-    { "name": "Debugging", "sourceLabel": "Papert" },
-    { "name": "Tangible Thinking", "sourceLabel": "Papert; Resnick" },
-    { "name": "Low Floor, High Ceiling", "sourceLabel": "Resnick" },
-    { "name": "Computational Thinking", "sourceLabel": "Papert & Wing" },
-    { "name": "Complementary", "sourceLabel": "Ainsworth" },
-    { "name": "Constraining Interpretation", "sourceLabel": "Ainsworth" },
-    { "name": "Deeper Understanding", "sourceLabel": "Ainsworth" },
-    { "name": "Explicit Purpose", "sourceLabel": "Ainsworth" },
-    { "name": "Appropriateness", "sourceLabel": "Ainsworth" },
-    { "name": "Availability", "sourceLabel": "Ainsworth" },
-    { "name": "Translation", "sourceLabel": "Ainsworth" },
-    { "name": "Sequence", "sourceLabel": "Ainsworth" },
-    { "name": "Self-Explanation", "sourceLabel": "Ainsworth" },
-    { "name": "Coherence", "sourceLabel": "Ainsworth" },
-    { "name": "Interactivity", "sourceLabel": "Ainsworth" },
-    { "name": "Feedback", "sourceLabel": "Ainsworth" },
-    { "name": "Deliberate Practice", "sourceLabel": "Ericsson" },
-    { "name": "Feedback", "sourceLabel": "Ericsson, Krampe & Teschmer" },
-    { "name": "Mental Representation", "sourceLabel": "Ericsson & Smith" },
-    { "name": "Progressive Challenge", "sourceLabel": "Ericsson" },
-    { "name": "Error Correction", "sourceLabel": "Ericsson; Chi" },
-    { "name": "Transfer", "sourceLabel": "Ericsson; Barnett & Ceci" },
-    { "name": "Embodied Cognition", "sourceLabel": "Lakoff & Johnson; Barsalou" },
-    { "name": "Narrative Coherence", "sourceLabel": "Bruner; Schank" },
-    { "name": "Feedback Loops", "sourceLabel": "Cybernetics: Wiener; Hattie" },
-    { "name": "Boundary Object", "sourceLabel": "Star & Griesemer; Engestrom" },
-    { "name": "Affordance", "sourceLabel": "Norman; Gibson" },
-    { "name": "Analogical Transfer", "sourceLabel": "Gentner" },
-    { "name": "Story-Driven Design Principle", "sourceLabel": "Bruner, 1990" },
-    { "name": "Tinker-to-Learn Principle", "sourceLabel": "Resnick, 2017; Papert, 1993" },
-    { "name": "Transparency Principle", "sourceLabel": "Blikstein & Worsley, 2016" },
-    { "name": "Public Artifacts", "sourceLabel": "Papert & Harel" },
-    { "name": "Iterative Design", "sourceLabel": "Resnick & Rosenbaum" },
-    { "name": "Collaboration", "sourceLabel": "Harel & Papert" },
-    { "name": "Reflection", "sourceLabel": "Harel & Kafai" },
-    { "name": "Empowerment", "sourceLabel": "Papert" },
-    { "name": "Community of Makers", "sourceLabel": "Resnick & Kafai" },
-    { "name": "Self-Monitoring", "sourceLabel": "Ericsson; Zimmerman" },
-    { "name": "Reflective Practice", "sourceLabel": "Schoen; Ericsson" },
-    { "name": "Reflection-in-Action Principle", "sourceLabel": "Schoen, 1983" },
-    { "name": "Personal Meaning", "sourceLabel": "Papert" },
-    { "name": "Playful Learning", "sourceLabel": "Resnick" },
-    { "name": "Situated Construction", "sourceLabel": "Papert; Kafai" },
-    { "name": "Persistence", "sourceLabel": "Ericsson; Deci & Ryan" },
-    { "name": "Flow", "sourceLabel": "Csikszentmihalyi" },
-    { "name": "Design for Curiosity", "sourceLabel": "Loewenstein; Berlyne" },
-    { "name": "Resonance", "sourceLabel": "hooks; Palmer" },
-    { "name": "Agency and Voice", "sourceLabel": "Freire; hooks; Resnick" },
-    { "name": "Safe-to-Fail Principle", "sourceLabel": "Edmondson, 1999; Resnick, 2017" },
-    { "name": "Agency and Ownership Principle", "sourceLabel": "Freire, 1970; hooks, 1994" }
-];
 
 const experienceTypes = [
   { value: 'any', label: 'Any Kind of Experience' },
@@ -95,69 +26,117 @@ const ageGroups = [
 const getMechanismId = (mechanism) => `${mechanism.name}-${mechanism.sourceLabel}`;
 
 const App = () => {
+  const [mechanisms, setMechanisms] = useState([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [currentIdea, setCurrentIdea] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [experienceType, setExperienceType] = useState('any');
   const [ageGroup, setAgeGroup] = useState('any');
+  const [learningGoals, setLearningGoals] = useState('');
   const [usedMechanisms, setUsedMechanisms] = useState(new Set());
   const [lastShownMechanismId, setLastShownMechanismId] = useState(null);
+
+  useEffect(() => {
+    const parseCSV = (text) => {
+        const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+        const lines = text.trim().split('\n');
+        const headerLine = lines.shift();
+        const headers = headerLine.split(',').map(h => h.trim());
+        const titleIndex = headers.indexOf('Title');
+        const descriptionIndex = headers.indexOf('Description');
+        const referenceIndex = headers.indexOf('Reference');
+
+        if (titleIndex === -1 || descriptionIndex === -1 || referenceIndex === -1) {
+            console.error("CSV headers are missing or incorrect.");
+            return [];
+        }
+
+        return lines.map(line => {
+            const values = line.split(regex);
+            const cleanValue = (str) => {
+                if (!str) return '';
+                return str.trim().replace(/^"|"$/g, '').trim();
+            };
+
+            const mechanism = {
+                name: cleanValue(values[titleIndex]),
+                description: cleanValue(values[descriptionIndex]),
+                sourceLabel: cleanValue(values[referenceIndex]),
+            };
+            return mechanism;
+        }).filter(m => m.name && m.description);
+    };
+
+    fetch('/Design_principles_vibe_website_expanded.csv')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(csvText => {
+            const parsedData = parseCSV(csvText);
+            setMechanisms(parsedData);
+            setIsDataLoading(false);
+        })
+        .catch(error => {
+            console.error('Failed to load learning mechanisms:', error);
+            setError('Could not load learning mechanisms. Please refresh the page.');
+            setIsDataLoading(false);
+        });
+  }, []);
 
   const generateIdea = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     setCurrentIdea(null);
     try {
-      // 1. All mechanisms are available
       let availableMechanisms = mechanisms;
-      
-      // 2. Exclude recently used mechanisms
-      let potentialMechanisms = availableMechanisms.filter(m => !usedMechanisms.has(getMechanismId(m)));
-
-      // 3. If all mechanisms have been used, reset the used set
-      if (potentialMechanisms.length === 0) {
-        setUsedMechanisms(new Set());
-        potentialMechanisms = availableMechanisms; // Allow reuse
-      }
-      
-      // 4. Exclude the very last shown mechanism if there are other options
-      if (potentialMechanisms.length > 1 && lastShownMechanismId) {
-        potentialMechanisms = potentialMechanisms.filter(m => getMechanismId(m) !== lastShownMechanismId);
-      }
-
-      if (potentialMechanisms.length === 0) {
-        setError("No learning mechanisms available.");
+      if (!availableMechanisms || availableMechanisms.length === 0) {
+        setError("Learning mechanisms are not loaded.");
         setIsLoading(false);
         return;
       }
 
-      // 5. Select a random mechanism
+      let potentialMechanisms = availableMechanisms.filter(m => !usedMechanisms.has(getMechanismId(m)));
+
+      if (potentialMechanisms.length === 0) {
+        setUsedMechanisms(new Set());
+        potentialMechanisms = availableMechanisms;
+      }
+      
+      if (potentialMechanisms.length > 1 && lastShownMechanismId) {
+        potentialMechanisms = potentialMechanisms.filter(m => getMechanismId(m) !== lastShownMechanismId);
+      }
+
       const selectedMechanism = potentialMechanisms[Math.floor(Math.random() * potentialMechanisms.length)];
       const selectedMechanismId = getMechanismId(selectedMechanism);
       setUsedMechanisms(prev => new Set(prev).add(selectedMechanismId));
       setLastShownMechanismId(selectedMechanismId);
 
-
-      // 6. Use AI to generate contextual content
       const ai = new GoogleGenAI({ apiKey: API_KEY });
       const selectedExperience = experienceTypes.find(e => e.value === experienceType)?.label || 'any kind of learning experience';
       const selectedAgeGroup = ageGroups.find(a => a.value === ageGroup)?.label || 'any age group';
+      const learningGoalContext = learningGoals.trim() ? `\n- Learning Goal: ${learningGoals.trim()}` : '';
       
-      const prompt = `You are an expert in learning design. I will provide a learning mechanism. Your task is to define it and then contextualize it for a specific audience and experience, keeping your answers concise and to the point. Please use relevant emojis throughout your response to make it more engaging.
+      const prompt = `You are an expert in learning design, skilled at making complex theories accessible. I will provide a learning mechanism, its definition, and its source. Your task is to generate additional, user-friendly content for it, contextualized for a specific audience and experience. Please use relevant emojis to make the response engaging.
 
       Learning Mechanism: "${selectedMechanism.name}" (from ${selectedMechanism.sourceLabel})
+      Definition: "${selectedMechanism.description}"
       
       Context:
       - Target Audience: ${selectedAgeGroup}
-      - Desired Experience: ${selectedExperience}
+      - Desired Experience: ${selectedExperience}${learningGoalContext}
       
       Requirements (be very brief):
-      1. **Description:** A concise, one-sentence definition of the learning mechanism.
-      2. **Creative Example:** Write a short, creative example (2-3 sentences maximum).
-      3. **Implementation Tips:** Offer 2-3 brief, bulleted tips for implementing this mechanism.
-      4. **Tradeoffs:** Detail the pros, cons, and best-fit scenarios in 2-3 concise bullet points.
+      1. **Accessible Description:** In 1-2 sentences, explain the mechanism in a simple, friendly way as if to a beginner.
+      2. **Simple Example:** Write a short, creative example (3-4 sentences maximum) for the desired experience and audience described above. If a learning goal is provided, the example MUST be tailored to it.
+      3. **Implementation Tips:** Offer 3-4 clear, actionable bullet points on how to implement this. Use '*' for bullet points.
+      4. **Tradeoffs:** Detail the pros and cons in 2-3 concise bullet points using '*'. After the bullet points, add a new line starting with "Best for:" followed by a short sentence describing the best-fit scenario.
+      5. **Search Query:** Provide a concise search query suitable for Google Scholar to find academic papers about this mechanism and reference.
       
-      Return the response as a single JSON object. Use '*' for bullet points in tips and tradeoffs.`;
+      Return the response as a single JSON object.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
@@ -167,34 +146,48 @@ const App = () => {
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              description: {
+              accessibleDescription: {
                 type: Type.STRING,
-                description: "A concise, one-sentence definition of the learning mechanism."
+                description: "A 1-2 sentence, friendly explanation of the mechanism."
               },
               example: {
                 type: Type.STRING,
-                description: "A creative and concrete example of the mechanism in a learning scenario."
+                description: "A simple, concrete example of the mechanism in a learning scenario (3-4 sentences max)."
               },
               tips: {
                 type: Type.STRING,
-                description: "A few bullet points of practical tips for implementation. Use '*' for bullet points."
+                description: "3-4 bullet points of practical tips for implementation. Use '*' for bullet points."
               },
               tradeoffs: {
                 type: Type.STRING,
-                description: "The pros, cons, and best-fit scenarios for this mechanism. Use '*' for bullet points."
+                description: "Pros and cons as bullet points using '*', followed by a new line starting with 'Best for:' and the best-fit scenario."
+              },
+              searchQuery: {
+                type: Type.STRING,
+                description: "A concise and effective search query for Google Scholar based on the reference."
               }
             },
-            required: ["description", "example", "tips", "tradeoffs"],
+            required: ["accessibleDescription", "example", "tips", "tradeoffs", "searchQuery"],
           },
         },
       });
 
       const generatedData = JSON.parse(response.text.trim());
+      const [prosCons, bestFit] = generatedData.tradeoffs.split('Best for:');
+      const learnMoreLink = `https://scholar.google.com/scholar?q=${encodeURIComponent(generatedData.searchQuery)}`;
       
       const idea = {
         title: selectedMechanism.name,
         sourceLabel: selectedMechanism.sourceLabel,
-        ...generatedData
+        description: selectedMechanism.description,
+        accessibleDescription: generatedData.accessibleDescription,
+        example: generatedData.example,
+        tips: generatedData.tips,
+        tradeoffs: {
+          prosCons: prosCons || '',
+          bestFit: bestFit || 'N/A'
+        },
+        learnMoreLink
       };
       
       setCurrentIdea(idea);
@@ -205,7 +198,25 @@ const App = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [experienceType, ageGroup, usedMechanisms, lastShownMechanismId]);
+  }, [experienceType, ageGroup, learningGoals, usedMechanisms, lastShownMechanismId, mechanisms]);
+
+  const ExternalLinkIcon = () => (
+    <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="1em" 
+        height="1em" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        style={{ marginLeft: '4px', verticalAlign: 'text-bottom' }}>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+        <polyline points="15 3 21 3 21 9"></polyline>
+        <line x1="10" y1="14" x2="21" y2="3"></line>
+    </svg>
+  );
 
   const renderContent = () => {
     if (isLoading) {
@@ -241,12 +252,15 @@ const App = () => {
           <div className="card">
             <h2>{currentIdea.title}</h2>
             <p>{currentIdea.description}</p>
+            <p><strong>In other words:</strong> {currentIdea.accessibleDescription}</p>
             <p className="source-label">
                From the work of {currentIdea.sourceLabel}
+               <br />
+               <a href={currentIdea.learnMoreLink} target="_blank" rel="noopener noreferrer">Learn more<ExternalLinkIcon/></a>
             </p>
           </div>
           <div className="card">
-            <h3>🎨 Creative Example</h3>
+            <h3>🎨 Simple Example</h3>
             <p>{currentIdea.example}</p>
           </div>
           <div className="card">
@@ -260,10 +274,11 @@ const App = () => {
           <div className="card">
              <h3>⚖️ Tradeoffs</h3>
              <ul>
-              {currentIdea.tradeoffs.split('*').filter(t => t.trim()).map((t, index) => (
+              {currentIdea.tradeoffs.prosCons.split('*').filter(t => t.trim()).map((t, index) => (
                 <li key={index}>{t.trim()}</li>
               ))}
             </ul>
+            <p className="best-fit"><strong>Best for:</strong> {currentIdea.tradeoffs.bestFit.trim()}</p>
           </div>
         </div>
       );
@@ -276,6 +291,15 @@ const App = () => {
         </div>
     );
   };
+  
+  if (isDataLoading) {
+    return (
+      <div className="app-container" style={{ textAlign: 'center', paddingTop: '5rem' }}>
+        <div className="loader"></div>
+        <p style={{ marginTop: '1rem', color: '#102a43', fontSize: '1.1rem' }}>Loading learning design principles...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -291,6 +315,17 @@ const App = () => {
               {ageGroups.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
+           <div className="control-group">
+            <label htmlFor="learning-goals">With the learning goal of... (optional) 🌱</label>
+            <input 
+              type="text" 
+              id="learning-goals" 
+              placeholder="e.g., understanding photosynthesis"
+              value={learningGoals}
+              onChange={(e) => setLearningGoals(e.target.value)}
+              disabled={isLoading}
+            />
+          </div>
           <div className="control-group">
             <label htmlFor="experience-type">I want to design... 🎨</label>
             <select id="experience-type" value={experienceType} onChange={(e) => setExperienceType(e.target.value)} disabled={isLoading}>
@@ -298,15 +333,16 @@ const App = () => {
             </select>
           </div>
         </div>
-        
         <div className="button-container">
             <button className="generate-button" onClick={generateIdea} disabled={isLoading}>
-              {isLoading ? 'Sparking... ⏳' : 'Spark a new idea ✨'}
+                Spark a new idea ✨
             </button>
         </div>
-
         {renderContent()}
       </main>
+      <footer className="footer">
+        <p>Powered by the Google Gemini API</p>
+      </footer>
     </div>
   );
 };
