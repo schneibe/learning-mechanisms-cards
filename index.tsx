@@ -4,15 +4,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
 
-const experienceTypes = [
-  { value: 'any', label: 'Any Kind of Experience' },
-  { value: 'physical', label: 'An Experience with Physical Artifacts' },
-  { value: 'digital', label: 'A Digital Simulation' },
-  { value: 'collaborative', label: 'A Collaborative Project' },
-  { value: 'self-paced', label: 'A Self-Paced Exploration' },
-  { value: 'workshop', label: 'An Instructor-Led Workshop' },
-];
-
 const ageGroups = [
   { value: 'any', label: 'Any Age Group' },
   { value: 'preschool', label: 'Preschool (3-5 years)' },
@@ -23,6 +14,13 @@ const ageGroups = [
   { value: 'adult', label: 'Adult Learners' },
 ];
 
+const mechanismTypes = [
+  { value: 'any', label: 'Any Type' },
+  { value: 'Conceptual', label: 'Conceptual' },
+  { value: 'Motivation', label: 'Motivational' },
+  { value: 'Meta cognition', label: 'Metacognitive' },
+];
+
 const getMechanismId = (mechanism) => `${mechanism.name}-${mechanism.sourceLabel}`;
 
 const App = () => {
@@ -31,8 +29,8 @@ const App = () => {
   const [currentIdea, setCurrentIdea] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [experienceType, setExperienceType] = useState('any');
   const [ageGroup, setAgeGroup] = useState('any');
+  const [mechanismType, setMechanismType] = useState('any');
   const [learningGoals, setLearningGoals] = useState('');
   const [usedMechanisms, setUsedMechanisms] = useState(new Set());
   const [lastShownMechanismId, setLastShownMechanismId] = useState(null);
@@ -44,10 +42,11 @@ const App = () => {
         const headerLine = lines.shift();
         const headers = headerLine.split(',').map(h => h.trim());
         const titleIndex = headers.indexOf('Title');
+        const typeIndex = headers.indexOf('Type');
         const descriptionIndex = headers.indexOf('Description');
         const referenceIndex = headers.indexOf('Reference');
 
-        if (titleIndex === -1 || descriptionIndex === -1 || referenceIndex === -1) {
+        if (titleIndex === -1 || typeIndex === -1 || descriptionIndex === -1 || referenceIndex === -1) {
             console.error("CSV headers are missing or incorrect.");
             return [];
         }
@@ -61,6 +60,7 @@ const App = () => {
 
             const mechanism = {
                 name: cleanValue(values[titleIndex]),
+                type: cleanValue(values[typeIndex]),
                 description: cleanValue(values[descriptionIndex]),
                 sourceLabel: cleanValue(values[referenceIndex]),
             };
@@ -92,9 +92,19 @@ const App = () => {
     setError(null);
     setCurrentIdea(null);
     try {
-      let availableMechanisms = mechanisms;
-      if (!availableMechanisms || availableMechanisms.length === 0) {
+      if (!mechanisms || mechanisms.length === 0) {
         setError("Learning mechanisms are not loaded.");
+        setIsLoading(false);
+        return;
+      }
+
+      let availableMechanisms = mechanisms;
+      if (mechanismType !== 'any') {
+        availableMechanisms = mechanisms.filter(m => m.type === mechanismType);
+      }
+
+      if (availableMechanisms.length === 0) {
+        setError(`Sorry, no mechanisms found for the "${mechanismType}" type. Please select another.`);
         setIsLoading(false);
         return;
       }
@@ -102,6 +112,7 @@ const App = () => {
       let potentialMechanisms = availableMechanisms.filter(m => !usedMechanisms.has(getMechanismId(m)));
 
       if (potentialMechanisms.length === 0) {
+        // All mechanisms of this type have been seen. For simplicity, reset all used mechanisms.
         setUsedMechanisms(new Set());
         potentialMechanisms = availableMechanisms;
       }
@@ -116,7 +127,7 @@ const App = () => {
       setLastShownMechanismId(selectedMechanismId);
 
       const ai = new GoogleGenAI({ apiKey: API_KEY });
-      const selectedExperience = experienceTypes.find(e => e.value === experienceType)?.label || 'any kind of learning experience';
+      const selectedExperience = 'any kind of learning experience';
       const selectedAgeGroup = ageGroups.find(a => a.value === ageGroup)?.label || 'any age group';
       const learningGoalContext = learningGoals.trim() ? `\n- Learning Goal: ${learningGoals.trim()}` : '';
       
@@ -198,7 +209,7 @@ const App = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [experienceType, ageGroup, learningGoals, usedMechanisms, lastShownMechanismId, mechanisms]);
+  }, [ageGroup, learningGoals, usedMechanisms, lastShownMechanismId, mechanisms, mechanismType]);
 
   const ExternalLinkIcon = () => (
     <svg 
@@ -309,6 +320,12 @@ const App = () => {
       </header>
       <main>
         <div className="controls-container">
+          <div className="control-group">
+            <label htmlFor="mechanism-type">Show me a mechanism that is... ⚙️</label>
+            <select id="mechanism-type" value={mechanismType} onChange={(e) => setMechanismType(e.target.value)} disabled={isLoading}>
+              {mechanismTypes.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+          </div>
            <div className="control-group">
             <label htmlFor="age-group">For learners who are... 🧑‍🎓</label>
             <select id="age-group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} disabled={isLoading}>
@@ -325,12 +342,6 @@ const App = () => {
               onChange={(e) => setLearningGoals(e.target.value)}
               disabled={isLoading}
             />
-          </div>
-          <div className="control-group">
-            <label htmlFor="experience-type">I want to design... 🎨</label>
-            <select id="experience-type" value={experienceType} onChange={(e) => setExperienceType(e.target.value)} disabled={isLoading}>
-              {experienceTypes.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
           </div>
         </div>
         <div className="button-container">
